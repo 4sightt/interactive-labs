@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="숫자 세 개를 시험해 숨은 규칙을 추론하는 가설 검증 게임">
+  <title>Rule Hunter</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d0f12;
+      --card: #17191d;
+      --panel: #1d2025;
+      --panel-2: #23272d;
+      --border: #343941;
+      --text: #f1f3f5;
+      --muted: #a8b0bb;
+      --accent: #3b82f6;
+      --accent-soft: rgba(59, 130, 246, 0.16);
+      --good: #9bd1ff;
+    }
+
+    * { box-sizing: border-box; }
+    html { font-family: Inter, Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #151922 0, var(--bg) 38rem);
+      color: var(--text);
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: default; opacity: .55; }
+
+    .page { width: min(920px, calc(100% - 28px)); margin: 28px auto 56px; }
+    .card { border: 1px solid var(--border); background: var(--card); border-radius: 18px; padding: 18px; box-shadow: 0 18px 50px rgba(0,0,0,.22); }
+    .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+    .intro { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .chip { border: 1px solid var(--border); border-radius: 999px; padding: 5px 9px; color: var(--muted); font-size: 12px; }
+    .btn { min-height: 42px; border-radius: 11px; border: 1px solid var(--border); background: transparent; color: var(--text); padding: 9px 13px; font-weight: 700; }
+    .btn:hover { background: var(--panel); }
+    .btn-primary { border-color: var(--accent); background: var(--accent); color: white; padding-inline: 22px; }
+    .btn-primary:hover { filter: brightness(1.08); background: var(--accent); }
+
+    .seed-panel { margin-top: 18px; border: 1px solid var(--border); background: var(--panel); border-radius: 14px; padding: 14px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 18px; }
+    .label { color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .02em; }
+    .seed-values { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; align-items: center; }
+    .number-pill { border: 1px solid var(--border); border-radius: 8px; min-width: 34px; padding: 7px 9px; text-align: center; font-weight: 800; background: rgba(255,255,255,.015); }
+    .match-pill { border-radius: 999px; padding: 5px 8px; background: var(--accent-soft); font-size: 11px; font-weight: 800; color: var(--good); }
+    .compression { min-width: 155px; border-left: 1px solid var(--border); padding-left: 18px; }
+    .compression-line { display: flex; align-items: baseline; gap: 8px; margin-top: 3px; }
+    .compression-start { font-size: 21px; font-weight: 800; }
+    .compression-now { font-size: 32px; font-weight: 900; }
+    .arrow { color: var(--muted); }
+    .progress { margin-top: 7px; height: 7px; border-radius: 999px; background: var(--card); overflow: hidden; }
+    .progress > div { height: 100%; width: 0; background: var(--accent); border-radius: inherit; transition: width .22s ease; }
+
+    .duel { margin-top: 18px; border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 14px; padding: 14px; }
+    .duel[hidden] { display: none; }
+    .duel-title { margin: 7px 0 0; font-size: 15px; font-weight: 850; }
+    .duel-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; margin-top: 12px; }
+    .duel-rule { border: 1px solid var(--border); background: var(--card); border-radius: 11px; padding: 12px; }
+    .duel-rule strong { display: block; margin-top: 5px; font-size: 14px; line-height: 1.6; }
+    .duel-note { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+    .test-area { margin-top: 20px; }
+    .section-title { margin: 0; font-size: 14px; font-weight: 850; }
+    .inputs { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-top: 10px; }
+    .inputs input { width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: 11px; background: transparent; color: var(--text); text-align: center; padding: 8px 10px; font-size: 16px; outline: none; }
+    .inputs input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .feedback { min-height: 23px; margin-top: 10px; font-size: 13px; font-weight: 800; line-height: 1.6; }
+    .error { min-height: 18px; color: var(--muted); font-size: 12px; }
+
+    .history-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 24px; }
+    .count { color: var(--muted); font-size: 12px; }
+    .history { margin-top: 9px; display: grid; gap: 8px; }
+    .empty { border: 1px dashed var(--border); border-radius: 11px; padding: 12px; color: var(--muted); font-size: 13px; }
+    .history-item { border: 1px solid var(--border); border-radius: 11px; padding: 11px 12px; }
+    .history-main { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .history-main strong { font-size: 14px; }
+    .index { margin-right: 7px; color: var(--muted); font-size: 11px; }
+    .verdict { border: 1px solid var(--border); border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 850; white-space: nowrap; }
+    .verdict.pass { border-color: transparent; background: var(--accent-soft); color: var(--good); }
+    .shrink { margin-top: 7px; color: var(--muted); font-size: 11px; }
+
+    .result { margin-top: 18px; border: 1px solid var(--border); background: var(--panel); border-radius: 14px; padding: 14px; }
+    .result[hidden] { display: none; }
+    .result h2 { margin: 0; font-size: 14px; }
+    .answer-label { margin-top: 12px; color: var(--muted); font-size: 11px; font-weight: 850; }
+    .answer { margin: 5px 0 0; font-size: 20px; line-height: 1.55; font-weight: 900; }
+    .result-copy { color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .competitors { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 14px; }
+    .competitor { margin-top: 8px; border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px; font-size: 13px; line-height: 1.55; }
+    .summary { margin-top: 14px; color: var(--muted); font-size: 11px; }
+    footer { margin-top: 14px; text-align: center; color: #737b87; font-size: 11px; }
+
+    @media (max-width: 640px) {
+      .page { width: min(100% - 18px, 920px); margin-top: 10px; }
+      .card { padding: 14px; border-radius: 15px; }
+      .top { align-items: stretch; }
+      .top .btn { flex: 0 0 auto; }
+      .seed-panel { grid-template-columns: 1fr; }
+      .compression { border-left: 0; border-top: 1px solid var(--border); padding: 12px 0 0; }
+      .duel-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="card" aria-labelledby="game-title">
+      <div class="top">
+        <div>
+          <h1 id="game-title" style="position:absolute;left:-9999px">Rule Hunter</h1>
+          <p class="intro">숨은 규칙은 미리 정해진 후보 규칙 가운데 하나다. 숫자 세 개를 시험해서 후보를 줄이고, 마지막 두 규칙은 직접 구별한다.</p>
+          <div class="chips" aria-label="규칙 범주">
+            <span class="chip">순서</span><span class="chip">합·차이</span><span class="chip">홀짝</span><span class="chip">부호</span><span class="chip">절댓값</span><span class="chip">배수</span>
+          </div>
+        </div>
+        <button id="newRound" class="btn" type="button">새 라운드</button>
+      </div>
+
+      <div class="seed-panel">
+        <div>
+          <div class="label">시작 사례 · 규칙에 맞음</div>
+          <div id="seed" class="seed-values"></div>
+        </div>
+        <div class="compression">
+          <div class="label">후보 압축</div>
+          <div class="compression-line"><span id="startCount" class="compression-start">0</span><span class="arrow">→</span><span id="currentCount" class="compression-now">0</span></div>
+          <div class="progress" aria-hidden="true"><div id="progressBar"></div></div>
+        </div>
+      </div>
+
+      <section id="duel" class="duel" hidden>
+        <div class="label">최종 대결 · 후보 2개</div>
+        <p class="duel-title">두 규칙이 서로 다른 판정을 내리게 할 숫자 세 개를 만들어라.</p>
+        <div id="duelRules" class="duel-grid"></div>
+        <p class="duel-note">어느 규칙이 정답인지는 아직 공개되지 않는다. 다음 시험으로 둘 중 하나를 제거하면 성공한다.</p>
+      </section>
+
+      <section class="test-area" aria-labelledby="test-title">
+        <h2 id="test-title" class="section-title">시험할 세 숫자</h2>
+        <div class="inputs">
+          <input id="a" type="number" inputmode="numeric" value="1" aria-label="첫째 수">
+          <input id="b" type="number" inputmode="numeric" value="2" aria-label="둘째 수">
+          <input id="c" type="number" inputmode="numeric" value="3" aria-label="셋째 수">
+        </div>
+        <div class="actions">
+          <button id="testButton" class="btn btn-primary" type="button">시험</button>
+          <button id="revealButton" class="btn" type="button">포기하고 공개</button>
+        </div>
+        <div id="feedback" class="feedback" aria-live="polite"></div>
+        <div id="error" class="error" aria-live="polite"></div>
+      </section>
+
+      <div class="history-head">
+        <h2 class="section-title">실험 기록</h2>
+        <span id="testCount" class="count">0회</span>
+      </div>
+      <div id="history" class="history" aria-live="polite"></div>
+
+      <section id="result" class="result" hidden aria-live="polite"></section>
+    </section>
+    <footer>Rule Hunter · finite-hypothesis experiment game</footer>
+  </main>
+
+  <script>
+    (() => {
+      const parity = n => Math.abs(n % 2);
+      const rules = [
+        { name: '세 수가 증가한다.', test: v => v[0] < v[1] && v[1] < v[2] },
+        { name: '세 수가 감소한다.', test: v => v[0] > v[1] && v[1] > v[2] },
+        { name: '둘째 수가 첫째 수와 셋째 수보다 크다.', test: v => v[1] > v[0] && v[1] > v[2] },
+        { name: '둘째 수가 첫째 수와 셋째 수보다 작다.', test: v => v[1] < v[0] && v[1] < v[2] },
+        { name: '세 수의 절댓값이 증가한다.', test: v => Math.abs(v[0]) < Math.abs(v[1]) && Math.abs(v[1]) < Math.abs(v[2]) },
+        { name: '세 수의 절댓값이 감소한다.', test: v => Math.abs(v[0]) > Math.abs(v[1]) && Math.abs(v[1]) > Math.abs(v[2]) },
+        { name: '첫째 수와 둘째 수의 합이 셋째 수와 같다.', test: v => v[0] + v[1] === v[2] },
+        { name: '첫째 수와 셋째 수의 합이 둘째 수와 같다.', test: v => v[0] + v[2] === v[1] },
+        { name: '둘째 수와 셋째 수의 합이 첫째 수와 같다.', test: v => v[1] + v[2] === v[0] },
+        { name: '첫째 수와 둘째 수의 합이 셋째 수보다 크다.', test: v => v[0] + v[1] > v[2] },
+        { name: '첫째 수와 셋째 수의 합이 둘째 수보다 크다.', test: v => v[0] + v[2] > v[1] },
+        { name: '둘째 수와 셋째 수의 합이 첫째 수보다 크다.', test: v => v[1] + v[2] > v[0] },
+        { name: '세 수를 변의 길이로 하는 삼각형을 만들 수 있다.', test: v => v.every(n => n > 0) && v[0] + v[1] > v[2] && v[0] + v[2] > v[1] && v[1] + v[2] > v[0] },
+        { name: '세 수가 등차수열을 이룬다.', test: v => (v[1] - v[0]) === (v[2] - v[1]) },
+        { name: '셋째 수와 둘째 수의 차가, 둘째 수와 첫째 수의 차보다 크다.', test: v => (v[2] - v[1]) > (v[1] - v[0]) },
+        { name: '셋째 수와 둘째 수의 차가, 둘째 수와 첫째 수의 차보다 작다.', test: v => (v[2] - v[1]) < (v[1] - v[0]) },
+        { name: '세 수의 합이 짝수이다.', test: v => (v[0] + v[1] + v[2]) % 2 === 0 },
+        { name: '세 수의 합이 홀수이다.', test: v => Math.abs((v[0] + v[1] + v[2]) % 2) === 1 },
+        { name: '세 수 중 정확히 하나가 짝수이다.', test: v => v.filter(n => parity(n) === 0).length === 1 },
+        { name: '세 수 중 정확히 두 수가 짝수이다.', test: v => v.filter(n => parity(n) === 0).length === 2 },
+        { name: '세 수가 모두 짝수이거나 모두 홀수이다.', test: v => parity(v[0]) === parity(v[1]) && parity(v[1]) === parity(v[2]) },
+        { name: '첫째 수와 셋째 수는 같은 홀짝이고, 둘째 수는 다른 홀짝이다.', test: v => parity(v[0]) === parity(v[2]) && parity(v[0]) !== parity(v[1]) },
+        { name: '세 수의 곱이 양수이다.', test: v => v[0] * v[1] * v[2] > 0 },
+        { name: '세 수의 곱이 음수이다.', test: v => v[0] * v[1] * v[2] < 0 },
+        { name: '세 수의 합이 양수이다.', test: v => v[0] + v[1] + v[2] > 0 },
+        { name: '세 수의 합이 음수이다.', test: v => v[0] + v[1] + v[2] < 0 },
+        { name: '세 수 중 정확히 하나가 음수이다.', test: v => v.filter(n => n < 0).length === 1 },
+        { name: '세 수 중 정확히 두 수가 음수이다.', test: v => v.filter(n => n < 0).length === 2 },
+        { name: '세 수가 모두 양수이거나 모두 음수이다.', test: v => v.every(n => n > 0) || v.every(n => n < 0) },
+        { name: '셋째 수가 첫째 수의 정수배이다.', test: v => v[0] !== 0 && v[2] % v[0] === 0 },
+        { name: '둘째 수가 첫째 수의 정수배이다.', test: v => v[0] !== 0 && v[1] % v[0] === 0 },
+        { name: '셋째 수가 둘째 수의 정수배이다.', test: v => v[1] !== 0 && v[2] % v[1] === 0 },
+        { name: '첫째 수와 셋째 수 사이의 거리가 3 이하이다.', test: v => Math.abs(v[0] - v[2]) <= 3 },
+        { name: '첫째 수와 둘째 수의 곱이 셋째 수와 같다.', test: v => v[0] * v[1] === v[2] }
+      ];
+
+      const $ = id => document.getElementById(id);
+      const el = {
+        seed: $('seed'), start: $('startCount'), current: $('currentCount'), progress: $('progressBar'),
+        duel: $('duel'), duelRules: $('duelRules'), a: $('a'), b: $('b'), c: $('c'),
+        test: $('testButton'), reveal: $('revealButton'), newRound: $('newRound'),
+        feedback: $('feedback'), error: $('error'), history: $('history'), testCount: $('testCount'), result: $('result')
+      };
+
+      let state;
+      const safeTest = (rule, values) => {
+        try { return Boolean(rule.test(values)); }
+        catch { return false; }
+      };
+
+      function readTriple() {
+        const values = [el.a.value, el.b.value, el.c.value].map(Number);
+        if (values.some(n => !Number.isFinite(n) || !Number.isInteger(n) || Math.abs(n) > 999)) return null;
+        return values;
+      }
+
+      function findSeed(hidden) {
+        let best = null;
+        let bestDistance = Infinity;
+        for (let a = -5; a <= 8; a++) {
+          for (let b = -5; b <= 8; b++) {
+            for (let c = -5; c <= 8; c++) {
+              const values = [a, b, c];
+              if (!safeTest(hidden, values)) continue;
+              const candidates = rules.filter(rule => safeTest(rule, values));
+              if (candidates.length < 8) continue;
+              const distance = Math.abs(candidates.length - 15);
+              if (distance < bestDistance) {
+                best = { values, candidates };
+                bestDistance = distance;
+              }
+              if (distance === 0) return best;
+            }
+          }
+        }
+        return best;
+      }
+
+      function renderHistory() {
+        if (state.history.length === 0) {
+          el.history.innerHTML = '<div class="empty">아직 실험 기록이 없다.</div>';
+          return;
+        }
+        el.history.innerHTML = state.history.map((item, index) => `
+          <div class="history-item">
+            <div class="history-main">
+              <div><span class="index">#${index + 1}</span><strong>${item.values.join(' · ')}</strong></div>
+              <span class="verdict ${item.pass ? 'pass' : ''}">${item.pass ? '맞음' : '틀림'}</span>
+            </div>
+            <div class="shrink">후보 ${item.before} → ${item.after}</div>
+          </div>
+        `).join('');
+      }
+
+      function renderDuel() {
+        if (state.finished || state.candidates.length !== 2) {
+          el.duel.hidden = true;
+          el.duelRules.innerHTML = '';
+          return;
+        }
+        el.duelRules.innerHTML = state.candidates.map((rule, index) => `
+          <div class="duel-rule">
+            <span class="label">후보 ${String.fromCharCode(65 + index)}</span>
+            <strong>${rule.name}</strong>
+          </div>
+        `).join('');
+        el.duel.hidden = false;
+      }
+
+      function update() {
+        const current = state.candidates.length;
+        el.start.textContent = state.initialCount;
+        el.current.textContent = current;
+        el.testCount.textContent = `${state.history.length}회`;
+        const ratio = state.initialCount > 1 ? (state.initialCount - current) / (state.initialCount - 1) : 1;
+        el.progress.style.width = `${Math.round(Math.max(0, Math.min(1, ratio)) * 100)}%`;
+        renderDuel();
+        if (!state.finished && current === 1) finish(false);
+      }
+
+      function runTest() {
+        if (state.finished) return;
+        const values = readTriple();
+        if (!values) {
+          el.error.textContent = '-999부터 999 사이의 정수 세 개를 입력한다.';
+          return;
+        }
+        el.error.textContent = '';
+
+        const before = state.candidates.length;
+        const oldCandidates = state.candidates.slice();
+        const pass = safeTest(state.hidden, values);
+        state.candidates = state.candidates.filter(rule => safeTest(rule, values) === pass);
+        const after = state.candidates.length;
+        state.history.push({ values: values.slice(), pass, before, after });
+
+        if (before === 2 && after === 2) {
+          const first = safeTest(oldCandidates[0], values);
+          const second = safeTest(oldCandidates[1], values);
+          if (first === second) {
+            el.feedback.textContent = `${values.join(' · ')} → 두 후보가 모두 ${pass ? '맞음' : '틀림'}으로 판정했다. 아직 구별되지 않았다.`;
+          }
+        } else {
+          el.feedback.textContent = `${values.join(' · ')} → ${pass ? '규칙에 맞음' : '규칙에 맞지 않음'}`;
+        }
+
+        renderHistory();
+        update();
+      }
+
+      function finish(gaveUp) {
+        if (state.finished) return;
+        state.finished = true;
+        el.test.disabled = true;
+        el.reveal.disabled = true;
+        el.duel.hidden = true;
+
+        const competitors = state.candidates.filter(rule => rule !== state.hidden);
+        const competitorHtml = competitors.length
+          ? `<div class="competitors"><div class="label">끝까지 남은 다른 후보</div>${competitors.map(rule => `<div class="competitor">${rule.name}</div>`).join('')}</div>`
+          : `<div class="competitors"><div class="label">남은 경쟁 후보</div><div class="result-copy" style="margin-top:6px">없음</div></div>`;
+        const successCopy = !gaveUp && state.history.length
+          ? '<p class="result-copy">마지막 실험으로 두 후보가 서로 다른 판정을 내렸고, 숨은 규칙 하나만 남았다.</p>'
+          : '';
+
+        el.result.innerHTML = `
+          <h2>${gaveUp ? '규칙 공개' : '최종 후보 판별 성공'}</h2>
+          <div class="answer-label">정답</div>
+          <p class="answer">${state.hidden.name}</p>
+          ${successCopy}
+          ${competitorHtml}
+          <div class="summary">총 시험 ${state.history.length}회 · 후보 ${state.initialCount} → ${state.candidates.length}</div>
+        `;
+        el.result.hidden = false;
+      }
+
+      function startRound() {
+        const eligible = [];
+        for (const rule of rules) {
+          const seed = findSeed(rule);
+          if (seed && seed.candidates.length >= 8) eligible.push({ rule, seed });
+        }
+        if (eligible.length === 0) {
+          el.feedback.textContent = '라운드를 만들 수 없다.';
+          return;
+        }
+        const chosen = eligible[Math.floor(Math.random() * eligible.length)];
+        state = {
+          hidden: chosen.rule,
+          candidates: chosen.seed.candidates.slice(),
+          initialCount: chosen.seed.candidates.length,
+          history: [],
+          finished: false
+        };
+
+        el.seed.innerHTML = chosen.seed.values.map(n => `<span class="number-pill">${n}</span>`).join('') + '<span class="match-pill">맞음</span>';
+        el.feedback.textContent = '';
+        el.error.textContent = '';
+        el.result.hidden = true;
+        el.result.innerHTML = '';
+        el.duel.hidden = true;
+        el.duelRules.innerHTML = '';
+        el.test.disabled = false;
+        el.reveal.disabled = false;
+        renderHistory();
+        update();
+      }
+
+      el.test.addEventListener('click', runTest);
+      el.reveal.addEventListener('click', () => finish(true));
+      el.newRound.addEventListener('click', startRound);
+      [el.a, el.b, el.c].forEach(input => input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          runTest();
+        }
+      }));
+
+      startRound();
+    })();
+  </script>
+</body>
+</html>
